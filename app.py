@@ -15,8 +15,19 @@ def extraer_texto_pdf(pdf_file):
         texto += page.extract_text()
     return texto
 
-# Función para obtener el resumen del libro
-def obtener_resumen(contenido_libro):
+# Función para dividir el texto en fragmentos
+def dividir_texto(texto, max_tokens=8000):
+    # Dividimos el texto por palabras para aproximarnos al límite de tokens (asumimos que 1 palabra ≈ 1 token)
+    palabras = texto.split()
+    bloques = []
+    while len(palabras) > 0:
+        # Creamos un bloque con el número de palabras/tokens permitido
+        bloques.append(" ".join(palabras[:max_tokens]))
+        palabras = palabras[max_tokens:]
+    return bloques
+
+# Función para obtener el resumen de cada fragmento
+def obtener_resumen(contenido_libro, max_tokens=512):
     url = "https://api.together.xyz/v1/chat/completions"
     headers = {
         "Authorization": f"Bearer {api_key}",
@@ -28,7 +39,7 @@ def obtener_resumen(contenido_libro):
         "model": "meta-llama/Meta-Llama-3.1-405B-Instruct-Turbo",
         "messages": [{"role": "system", "content": "Resume el siguiente libro de más de 100 páginas:"},
                      {"role": "user", "content": contenido_libro}],
-        "max_tokens": 2512,
+        "max_tokens": max_tokens,
         "temperature": 0.7,
         "top_p": 0.7,
         "top_k": 50,
@@ -64,12 +75,20 @@ if pdf_file is not None:
     st.subheader("Contenido del PDF extraído:")
     st.write(texto_pdf[:2000])  # Mostrar los primeros 2000 caracteres del contenido
 
+    # Dividimos el texto en fragmentos más pequeños
+    bloques_texto = dividir_texto(texto_pdf, max_tokens=4000)  # Dividimos en bloques de 4000 tokens aprox.
+
     # Botón para generar el resumen
     if st.button("Generar Resumen"):
-        with st.spinner("Generando resumen..."):
-            resumen = obtener_resumen(texto_pdf)
-            if resumen:
-                st.subheader("Resumen del Libro:")
-                st.write(resumen)
+        resumen_completo = ""
+        for i, bloque in enumerate(bloques_texto):
+            with st.spinner(f"Generando resumen del fragmento {i + 1}..."):
+                resumen = obtener_resumen(bloque)
+                if resumen:
+                    resumen_completo += resumen + "\n\n"
+
+        # Mostrar el resumen final
+        st.subheader("Resumen del Libro:")
+        st.write(resumen_completo)
 else:
     st.warning("Por favor, sube un archivo PDF para continuar.")
