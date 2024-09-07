@@ -1,9 +1,19 @@
 import streamlit as st
 import requests
 import json
+import PyPDF2
 
 # Cargar la API key desde los secretos de Streamlit
 api_key = st.secrets["together"]["api_key"]
+
+# Función para extraer texto del PDF
+def extraer_texto_pdf(pdf_file):
+    pdf_reader = PyPDF2.PdfReader(pdf_file)
+    texto = ""
+    for page_num in range(len(pdf_reader.pages)):
+        page = pdf_reader.pages[page_num]
+        texto += page.extract_text()
+    return texto
 
 # Función para obtener el resumen del libro
 def obtener_resumen(contenido_libro):
@@ -38,19 +48,28 @@ def obtener_resumen(contenido_libro):
         return None
 
 # Interfaz de usuario en Streamlit
-st.title("App de Resumen de Libros")
+st.title("App de Resumen de Libros (PDF)")
 st.write("Esta aplicación resume libros de más de 100 páginas utilizando la API de Together.")
 
-# Input para que el usuario pegue el contenido del libro
-libro_input = st.text_area("Introduce el contenido del libro aquí:")
+# Input para subir un archivo PDF
+pdf_file = st.file_uploader("Sube un archivo PDF", type=["pdf"])
 
 # Botón para generar el resumen
-if st.button("Generar Resumen"):
-    if len(libro_input) > 0:
+if pdf_file is not None:
+    # Extraemos el texto del PDF
+    with st.spinner("Extrayendo texto del PDF..."):
+        texto_pdf = extraer_texto_pdf(pdf_file)
+
+    # Mostrar un fragmento del texto extraído
+    st.subheader("Contenido del PDF extraído:")
+    st.write(texto_pdf[:2000])  # Mostrar los primeros 2000 caracteres del contenido
+
+    # Botón para generar el resumen
+    if st.button("Generar Resumen"):
         with st.spinner("Generando resumen..."):
-            resumen = obtener_resumen(libro_input)
+            resumen = obtener_resumen(texto_pdf)
             if resumen:
                 st.subheader("Resumen del Libro:")
                 st.write(resumen)
-    else:
-        st.warning("Por favor, introduce el contenido del libro.")
+else:
+    st.warning("Por favor, sube un archivo PDF para continuar.")
